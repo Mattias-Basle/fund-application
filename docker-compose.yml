@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:15.3-alpine3.18
+    restart: always
+    environment:
+        - POSTGRES_USER=postgres
+        - POSTGRES_PASSWORD=admin
+    ports:
+        - '5433:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  photo_storage:
+
+networks:
+  app-network:
+    driver: bridge
