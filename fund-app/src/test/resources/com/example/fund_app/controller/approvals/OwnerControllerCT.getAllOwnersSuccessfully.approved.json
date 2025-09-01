@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "username": "test1",
+    "accountIds": [
+      3,
+      2
+    ]
+  },
+  {
+    "id": 2,
+    "username": "test2",
+    "accountIds": [
+      1
+    ]
+  }
+]
