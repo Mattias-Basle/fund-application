@@ -4,10 +4,11 @@ import com.example.fund_app.feign.ERApiResponse;
 import com.example.fund_app.model.ExchangeRate;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingConstants;
 
 import java.time.Instant;
 
-@Mapper
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
 public interface ExchangeRateMapper {
 
 

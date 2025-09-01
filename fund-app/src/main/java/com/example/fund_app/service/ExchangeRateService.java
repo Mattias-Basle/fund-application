@@ -19,12 +19,14 @@ import java.time.Instant;
 public class ExchangeRateService {
 
     private final ExchangeRateRepository exchangeRateRepository;
-    @Qualifier("xRateCacheManager")
     private final CacheManager exchangeRateCacheManager;
     private final ExchangeRateClient exchangeRateClient;
     private final ExchangeRateMapper exchangeRateMapper;
 
-    public ExchangeRateService(ExchangeRateRepository exchangeRateRepository, CacheManager exchangeRateCacheManager, ExchangeRateClient exchangeRateClient, ExchangeRateMapper exchangeRateMapper) {
+    public ExchangeRateService(ExchangeRateRepository exchangeRateRepository,
+                               @Qualifier("xRateCacheManager") CacheManager exchangeRateCacheManager,
+                               ExchangeRateClient exchangeRateClient,
+                               ExchangeRateMapper exchangeRateMapper) {
         this.exchangeRateRepository = exchangeRateRepository;
         this.exchangeRateCacheManager = exchangeRateCacheManager;
         this.exchangeRateClient = exchangeRateClient;

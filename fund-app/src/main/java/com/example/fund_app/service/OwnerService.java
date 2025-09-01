@@ -26,11 +26,11 @@ public class OwnerService {
 
     private final OwnerRepository ownerRepository;
     private final AccountRepository accountRepository;
-
-    @Qualifier("ownerCacheManager")
     private final CacheManager ownerCacheManager;
 
-    public OwnerService(OwnerRepository ownerRepository, AccountRepository accountRepository, CacheManager ownerCacheManager) {
+    public OwnerService(OwnerRepository ownerRepository,
+                        AccountRepository accountRepository,
+                        @Qualifier("ownerCacheManager") CacheManager ownerCacheManager) {
         this.ownerRepository = ownerRepository;
         this.accountRepository = accountRepository;
         this.ownerCacheManager = ownerCacheManager;

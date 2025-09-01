@@ -19,12 +19,15 @@ import static java.lang.String.format;
 public class AccountService {
 
     private final AccountRepository accountRepository;
-    @Qualifier("accountCacheManager")
+
     private final CacheManager accountCacheManager;
     private final ExchangeRateService exchangeRateService;
     private final TransactionService transactionService;
 
-    public AccountService(AccountRepository accountRepository, CacheManager cacheManager, ExchangeRateService exchangeRateService, TransactionService transactionService) {
+    public AccountService(AccountRepository accountRepository,
+                          @Qualifier("accountCacheManager") CacheManager cacheManager,
+                          ExchangeRateService exchangeRateService,
+                          TransactionService transactionService) {
         this.accountRepository = accountRepository;
         this.accountCacheManager = cacheManager;
         this.exchangeRateService = exchangeRateService;

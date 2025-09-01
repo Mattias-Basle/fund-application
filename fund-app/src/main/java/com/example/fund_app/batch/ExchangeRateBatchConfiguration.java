@@ -7,25 +7,26 @@ import com.example.fund_app.repository.ExchangeRateRepository;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.batch.item.data.builder.RepositoryItemWriterBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.domain.Pageable;
+import org.springframework.context.annotation.Primary;
+import org.springframework.data.domain.Sort;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import java.util.Map;
+
 @Configuration
-@ConditionalOnBean(value = {ExchangeRateClient.class, ExchangeRateRepository.class, ExchangeRateMapper.class})
 public class ExchangeRateBatchConfiguration {
 
-
     @Bean
+    @Primary
     public Job exchangeRateJob(JobRepository jobRepository, Step step) {
         return new JobBuilder("exchangeRateJob", jobRepository).start(step).build();
     }
@@ -45,12 +46,12 @@ public class ExchangeRateBatchConfiguration {
     }
 
     @Bean
-    public ItemReader<ExchangeRate> reader(ExchangeRateRepository repository, Pageable pageable) {
+    public ItemReader<ExchangeRate> reader(ExchangeRateRepository repository) {
         return new RepositoryItemReaderBuilder<ExchangeRate>()
                 .name("exchangeRateItemReader")
                 .repository(repository)
                 .methodName("findAll")
-                .arguments(pageable)
+                .sorts(Map.of("currency", Sort.Direction.ASC))
                 .build();
     }
 
@@ -61,6 +62,9 @@ public class ExchangeRateBatchConfiguration {
 
     @Bean
     public ItemWriter<ExchangeRate> writer(ExchangeRateRepository repository) {
-        return new ExchangeRateItemWriter(repository);
+        return new RepositoryItemWriterBuilder<ExchangeRate>()
+                .repository(repository)
+                .methodName("save")
+                .build();
     }
 }
