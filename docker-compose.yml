@@ -12,9 +12,13 @@ services:
     networks:
       - app-network
 
+  redis:
+    image: redis:7.4.2
+    ports:
+      - '6379:6379'
+
 volumes:
   postgres_data:
-  photo_storage:
 
 networks:
   app-network:
