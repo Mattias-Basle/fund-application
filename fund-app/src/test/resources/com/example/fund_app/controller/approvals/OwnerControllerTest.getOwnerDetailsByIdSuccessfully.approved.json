@@ -1,0 +1,16 @@
+{
+  "id": 1,
+  "username": "test",
+  "accountDetails": [
+    {
+      "accountId": 1,
+      "currency": "EUR",
+      "balance": 1
+    },
+    {
+      "accountId": 5,
+      "currency": "USD",
+      "balance": 10
+    }
+  ]
+}
