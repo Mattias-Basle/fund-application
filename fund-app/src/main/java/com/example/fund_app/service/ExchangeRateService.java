@@ -10,12 +10,17 @@ import com.example.fund_app.repository.ExchangeRateRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDate;
 
 @Service
+@Transactional(propagation = Propagation.REQUIRED)
 public class ExchangeRateService {
 
     private final ExchangeRateRepository exchangeRateRepository;
@@ -37,9 +42,9 @@ public class ExchangeRateService {
         Cache cache = exchangeRateCacheManager.getCache("XRATE_CACHE");
         ExchangeRate xRate = cache.get(in, ExchangeRate.class);
 
-        if (xRate == null) {
-            xRate = exchangeRateRepository.findById(in)
-                    .orElse(retrieveExchangeRate(in));
+        if (xRate == null || !xRate.getLastUpdatedAt().equals(LocalDate.now())) {
+            xRate = exchangeRateRepository.findByCurrencyAndLastUpdatedAt(in, LocalDate.now())
+                    .orElseGet(() -> retrieveExchangeRate(in));
         }
 
         return xRate.getRates().get(out);
@@ -47,7 +52,7 @@ public class ExchangeRateService {
 
     private ExchangeRate retrieveExchangeRate(Currency in) {
         ExchangeRate retrievedRate = exchangeRateMapper.toEntity(
-                findRatesByCurrency(in), Instant.now());
+                findRatesByCurrency(in), LocalDate.now());
 
         ExchangeRate savedRate =  exchangeRateRepository.save(retrievedRate);
         Cache cache = exchangeRateCacheManager.getCache("XRATE_CACHE");
@@ -56,10 +61,15 @@ public class ExchangeRateService {
     }
 
     private ERApiResponse findRatesByCurrency(Currency currency) {
-        ERApiResponse response =  exchangeRateClient.fetchRatesPerCurrency(currency).getBody();
-        if (!"success".equalsIgnoreCase(response.result())) {
+        ResponseEntity<ERApiResponse> response =  exchangeRateClient.fetchRatesPerCurrency(currency);
+        if (!response.getStatusCode().equals(HttpStatusCode.valueOf(200))) {
             throw new ExchangeRateNotRetrievableException("Could not retrieve the exchange rate for " + currency);
         }
-        return response;
+
+        ERApiResponse responseBody = response.getBody();
+        if (!"success".equalsIgnoreCase(responseBody.result())) {
+            throw new ExchangeRateNotRetrievableException("Could not retrieve the exchange rate for " + currency);
+        }
+        return responseBody;
     }
 }

@@ -1,5 +1,8 @@
 package com.example.fund_app.model.dto;
 
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+
 import java.math.BigDecimal;
 
 /**
@@ -11,9 +14,9 @@ import java.math.BigDecimal;
  *               (this will allow to determine the computation in case of exchange rates)
  */
 public record TransferDto(
-        Long senderAccount,
-        Long receiverAccount,
-        BigDecimal amount,
+        @NotNull Long senderAccount,
+        @NotNull Long receiverAccount,
+        @NotNull @Min(10L) BigDecimal amount,
         boolean toSend
 ) {
 }

@@ -26,5 +26,5 @@ public enum Currency {
     WST,
     XAF,XCD,XCG,XDR,XOF,XPF,
     YER,
-    ZAR
+    ZAR, ZMW, ZWL
 }

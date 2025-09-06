@@ -1,9 +1,7 @@
 package com.example.fund_app.model;
 
 import jakarta.persistence.Embeddable;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.math.BigDecimal;
 
@@ -11,6 +9,8 @@ import java.math.BigDecimal;
 @Setter
 @Builder
 @Embeddable
+@NoArgsConstructor
+@AllArgsConstructor
 public class Amount {
 
     private Currency currency;

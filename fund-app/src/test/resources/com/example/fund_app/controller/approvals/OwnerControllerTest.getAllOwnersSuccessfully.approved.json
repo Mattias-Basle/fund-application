@@ -1,17 +1,17 @@
 [
   {
-    "id": 1,
+    "id": 1.0,
     "username": "test1",
     "accountIds": [
-      2,
-      3
+      2.0,
+      3.0
     ]
   },
   {
-    "id": 2,
+    "id": 2.0,
     "username": "test2",
     "accountIds": [
-      1
+      1.0
     ]
   }
 ]

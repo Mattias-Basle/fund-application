@@ -4,20 +4,23 @@ import com.example.fund_app.model.Account;
 import com.example.fund_app.model.Amount;
 import com.example.fund_app.model.Transaction;
 import com.example.fund_app.model.TransactionType;
-import com.example.fund_app.repository.TransactionRepository;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
+
+/**
+ * This service aims at auditing the transactions that occurs in accounts.
+ * Currently developed as a simple logging platform, it can be updated to fit in event-driven architecture
+ * by simply adding an event producer.
+ */
 @Service
+@Slf4j
 public class TransactionService {
-
-    private final TransactionRepository transactionRepository;
-
-    public TransactionService(TransactionRepository transactionRepository) {
-        this.transactionRepository = transactionRepository;
-    }
 
     public void logDeposit(Account depositAccount, BigDecimal value) {
         Amount depositAmount = Amount.builder()
@@ -26,13 +29,14 @@ public class TransactionService {
                 .build();
 
         Transaction transaction = Transaction.builder()
-                .sender(depositAccount)
+                .id(UUID.randomUUID().toString())
+                .receiver(depositAccount)
                 .amountReceived(depositAmount)
                 .type(TransactionType.DEPOSIT)
                 .transactionDate(Instant.now())
                 .build();
 
-        transactionRepository.save(transaction);
+        log.info("[FUND_APP] New deposit performed: {}", transaction.toString());
     }
 
     public void logWithdrawal(Account withdrawalAccount, BigDecimal value) {
@@ -42,13 +46,14 @@ public class TransactionService {
                 .build();
 
         Transaction transaction = Transaction.builder()
+                .id(UUID.randomUUID().toString())
                 .sender(withdrawalAccount)
                 .amountSent(depositAmount)
                 .type(TransactionType.WITHDRAWAL)
                 .transactionDate(Instant.now())
                 .build();
 
-        transactionRepository.save(transaction);
+        log.info("[FUND_APP] New withdrawal performed: {}", transaction.toString());
     }
 
     public void logTransfer(Account sender, Account receiver, BigDecimal valueOut, BigDecimal valueIn) {
@@ -63,6 +68,7 @@ public class TransactionService {
                 .build();
 
         Transaction transaction = Transaction.builder()
+                .id(UUID.randomUUID().toString())
                 .sender(sender)
                 .receiver(receiver)
                 .amountSent(amountSent)
@@ -71,6 +77,6 @@ public class TransactionService {
                 .transactionDate(Instant.now())
                 .build();
 
-        transactionRepository.save(transaction);
+        log.info("[FUND_APP] New transfer performed: {}", transaction.toString());
     }
 }

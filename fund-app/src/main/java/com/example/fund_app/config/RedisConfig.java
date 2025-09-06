@@ -3,7 +3,7 @@ package com.example.fund_app.config;
 import com.example.fund_app.model.Account;
 import com.example.fund_app.model.ExchangeRate;
 import com.example.fund_app.model.Owner;
-import org.springframework.cache.CacheManager;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -20,34 +20,34 @@ public class RedisConfig {
 
     @Bean
     @Primary
-    RedisCacheManager ownerCacheManager(RedisConnectionFactory connectionFactory) {
+    RedisCacheManager ownerCacheManager(RedisConnectionFactory connectionFactory, ObjectMapper mapper) {
         RedisCacheConfiguration redisCacheConfiguration = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(10))
                 .disableCachingNullValues()
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(new Jackson2JsonRedisSerializer<>(Owner.class)));
+                        .fromSerializer(new Jackson2JsonRedisSerializer<>(mapper, Owner.class)));
 
         return RedisCacheManager.builder(connectionFactory).cacheDefaults(redisCacheConfiguration).build();
     }
 
     @Bean
-    RedisCacheManager accountCacheManager(RedisConnectionFactory connectionFactory) {
+    RedisCacheManager accountCacheManager(RedisConnectionFactory connectionFactory, ObjectMapper mapper) {
         RedisCacheConfiguration redisCacheConfiguration = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(10))
                 .disableCachingNullValues()
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(new Jackson2JsonRedisSerializer<>(Account.class)));
+                        .fromSerializer(new Jackson2JsonRedisSerializer<>(mapper, Account.class)));
 
         return RedisCacheManager.builder(connectionFactory).cacheDefaults(redisCacheConfiguration).build();
     }
 
     @Bean
-    RedisCacheManager xRateCacheManager(RedisConnectionFactory connectionFactory) {
+    RedisCacheManager xRateCacheManager(RedisConnectionFactory connectionFactory, ObjectMapper mapper) {
         RedisCacheConfiguration redisCacheConfiguration = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(10))
                 .disableCachingNullValues()
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(new Jackson2JsonRedisSerializer<>(ExchangeRate.class)));
+                        .fromSerializer(new Jackson2JsonRedisSerializer<>(mapper, ExchangeRate.class)));
 
         return RedisCacheManager.builder(connectionFactory).cacheDefaults(redisCacheConfiguration).build();
     }

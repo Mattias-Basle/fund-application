@@ -7,7 +7,7 @@ import com.example.fund_app.model.ExchangeRate;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
+import java.time.LocalDate;
 
 @Component
 public class ExchangeRateItemProcessor implements ItemProcessor<ExchangeRate, ExchangeRate> {
@@ -32,6 +32,6 @@ public class ExchangeRateItemProcessor implements ItemProcessor<ExchangeRate, Ex
             return null;
         }
 
-        return exchangeRateMapper.toEntity(response, Instant.now());
+        return exchangeRateMapper.toEntity(response, LocalDate.now());
     }
 }

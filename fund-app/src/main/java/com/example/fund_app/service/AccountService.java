@@ -9,6 +9,7 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -16,6 +17,7 @@ import java.math.RoundingMode;
 import static java.lang.String.format;
 
 @Service
+@Transactional
 public class AccountService {
 
     private final AccountRepository accountRepository;
@@ -40,8 +42,7 @@ public class AccountService {
         if (cachedAccount != null) {
             return cachedAccount;
         }
-        Account savedAccount =  accountRepository.findById(accountId)
-                .orElseThrow(() -> new DbRecordNotFoundException("Account not found with ID: " + accountId));
+        Account savedAccount =  findAccount(accountId);
         cache.put(accountId, savedAccount);
         return savedAccount;
     }
@@ -52,23 +53,31 @@ public class AccountService {
     }
 
     public String deposit(Long accountId, BigDecimal amount, boolean logTransaction) {
-        Account account = this.findById(accountId);
+        Account account = findAccount(accountId);
+        return deposit(account, amount, logTransaction);
+    }
+
+    private String deposit(Account account, BigDecimal amount, boolean logTransaction) {
         BigDecimal newBalance = account.getBalance().add(amount);
 
         account.setBalance(newBalance);
-        accountRepository.save(account);
-        updateAccountCache(account);
+        Account updatedAccount = accountRepository.save(account);
+        updateAccountCache(updatedAccount);
 
         if (logTransaction) {
             transactionService.logDeposit(account, amount);
         }
 
-        return format("Successful deposit of %s %f for account %s. New balance is: %s %.2f",
-                account.getCurrency().name(), amount, accountId, account.getCurrency().name(), newBalance);
+        return format("Successful deposit of %s %.2f for account %s. New balance is: %s %.2f",
+                account.getCurrency().name(), amount, account.getAccountId(), account.getCurrency().name(), newBalance);
     }
 
     public String withdraw(Long accountId, BigDecimal amount, boolean logTransaction) {
-        Account account = this.findById(accountId);
+        Account account = findAccount(accountId);
+        return withdraw(account, amount, logTransaction);
+    }
+
+    private String withdraw(Account account, BigDecimal amount, boolean logTransaction) {
         BigDecimal newBalance = account.getBalance().subtract(amount);
 
         if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
@@ -76,25 +85,29 @@ public class AccountService {
         }
 
         account.setBalance(newBalance);
-        accountRepository.save(account);
-        updateAccountCache(account);
+        Account updatedAccount = accountRepository.save(account);
+        updateAccountCache(updatedAccount);
 
         if (logTransaction) {
             transactionService.logWithdrawal(account, amount);
         }
 
-        return format("Successfully withdrawn %s %f for account %s. New balance is: %s %.2f",
-                account.getCurrency().name(), amount, accountId, account.getCurrency().name(), newBalance);
+        return format("Successfully withdrawn %s %.2f for account %s. New balance is: %s %.2f",
+                account.getCurrency().name(), amount, account.getAccountId(), account.getCurrency().name(), newBalance);
     }
 
     public String transferTo(Long senderId, Long receiverId, BigDecimal amount) {
-        Account senderAccount = findById(senderId);
+        if (senderId.equals(receiverId)) {
+            throw new AccountActionInvalidException("Transfer cannot be performed within the same account");
+        }
+
+        Account senderAccount = findAccount(senderId);
 
         if (amount.compareTo(senderAccount.getBalance()) > 0) {
             throw new AccountActionInvalidException("The account does not have sufficient funds for this operation");
         }
 
-        Account receiverAccount = findById(receiverId);
+        Account receiverAccount = findAccount(receiverId);
 
         if (receiverAccount.getCurrency().equals(senderAccount.getCurrency())) {
             computeWithinCurrency(senderAccount, receiverAccount, amount);
@@ -107,8 +120,12 @@ public class AccountService {
 
 
     public String transferFrom(Long senderId, Long receiverId, BigDecimal amount) {
-        Account senderAccount = findById(senderId);
-        Account receiverAccount = findById(receiverId);
+        if (senderId.equals(receiverId)) {
+            throw new AccountActionInvalidException("Transfer cannot be performed within the same account");
+        }
+
+        Account senderAccount = findAccount(senderId);
+        Account receiverAccount = findAccount(receiverId);
 
         BigDecimal amountToWithdraw;
 
@@ -117,7 +134,8 @@ public class AccountService {
             this.withdraw(senderId, amountToWithdraw, false);
         } else {
             BigDecimal rate = exchangeRateService.getRate(senderAccount.getCurrency(), receiverAccount.getCurrency());
-            amountToWithdraw = senderAccount.getBalance().divide(rate, RoundingMode.HALF_DOWN);
+            amountToWithdraw = amount.divide(rate, 2, RoundingMode.HALF_EVEN);
+
 
             this.withdraw(senderId, amountToWithdraw, false);
 
@@ -129,9 +147,14 @@ public class AccountService {
         return format("Transfer between accounts %s and %s successful", senderId, receiverId);
     }
 
+    private Account findAccount(Long accountId) {
+        return accountRepository.findById(accountId)
+                .orElseThrow(() -> new DbRecordNotFoundException("Account not found with ID: " + accountId));
+    }
+
     private void computeWithinCurrency(Account senderAccount, Account receiverAccount, BigDecimal amount) {
-        this.withdraw(senderAccount.getId(), amount, false);
-        this.deposit(receiverAccount.getId(), amount, false);
+        withdraw(senderAccount, amount, false);
+        deposit(receiverAccount, amount, false);
         transactionService.logTransfer(senderAccount, receiverAccount, amount, amount);
     }
 
@@ -141,14 +164,14 @@ public class AccountService {
 
         BigDecimal amountToDeposit = amount.multiply(rate);
 
-        this.withdraw(senderAccount.getId(), amount, false);
-        this.deposit(receiverAccount.getId(), amountToDeposit, false);
+        withdraw(senderAccount, amount, false);
+        deposit(receiverAccount, amountToDeposit, false);
 
         transactionService.logTransfer(senderAccount, receiverAccount, amount, amountToDeposit);
     }
     private void updateAccountCache(Account account) {
         Cache cache = accountCacheManager.getCache("ACCOUNT_CACHE");
-        cache.evictIfPresent(account.getId());
-        cache.put(account.getId(), account);
+        cache.evictIfPresent(account.getAccountId());
+        cache.put(account.getAccountId(), account);
     }
 }

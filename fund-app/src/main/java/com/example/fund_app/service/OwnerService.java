@@ -12,16 +12,16 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
-import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 @Service
+@Transactional
 public class OwnerService {
 
     private final OwnerRepository ownerRepository;
@@ -46,11 +46,13 @@ public class OwnerService {
                 .accounts(new HashSet<>())
                 .build();
 
-        ownerRepository.save(newOwner);
+        Owner savedOwner = ownerRepository.save(newOwner);
+        Cache cache = ownerCacheManager.getCache("OWNER_CACHE");
+        cache.put(savedOwner.getId(), savedOwner);
     }
 
-    public List<Owner> getAllOwners() {
-        return ownerRepository.findAll();
+    public Page<Owner> getAllOwners(Pageable pageable) {
+        return ownerRepository.findAll(pageable);
     }
 
     public Owner getById(Long ownerId) {
@@ -81,20 +83,12 @@ public class OwnerService {
                 .build();
 
         accountRepository.save(accountToAdd);
-        updateOwnerCache(ownerId);
+        Cache cache = ownerCacheManager.getCache("OWNER_CACHE");
+        cache.evictIfPresent(ownerId);
     }
 
     @CacheEvict(cacheManager = "ownerCacheManager", value = "OWNER_CACHE", key = "#ownerId")
     public void deleteOwner(Long ownerId) {
         ownerRepository.deleteById(ownerId);
-    }
-
-    private void updateOwnerCache(Long ownerId) {
-        Owner updatedOwner =  ownerRepository.findById(ownerId)
-                .orElseThrow(() -> new DbRecordNotFoundException("Owner not found with ID: " + ownerId));
-
-        Cache cache = ownerCacheManager.getCache("OWNER_CACHE");
-        cache.evictIfPresent(ownerId);
-        cache.put(updatedOwner.getId(), updatedOwner);
     }
 }

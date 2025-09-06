@@ -2,12 +2,13 @@ package com.example.fund_app.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.DynamicInsert;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-import org.springframework.format.annotation.DateTimeFormat;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Map;
 
 @Entity
@@ -17,6 +18,7 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@DynamicInsert
 public class ExchangeRate {
 
     @Id @Column(name = "CURRENCY")
@@ -28,6 +30,10 @@ public class ExchangeRate {
     private Map<Currency, BigDecimal> rates;
 
     @Column(name = "LAST_UPDATED_AT", nullable = false)
-    @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private Instant lastUpdatedAt;
+    private LocalDate lastUpdatedAt;
+
+    @Version
+    @Column(name = "XRATE_LOCK_VERSION", nullable = false)
+    @ColumnDefault("0")
+    private Long version;
 }

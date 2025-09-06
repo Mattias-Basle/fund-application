@@ -2,10 +2,11 @@ package com.example.fund_app.controller;
 
 import com.example.fund_app.mapper.AccountMapper;
 import com.example.fund_app.model.Account;
-import com.example.fund_app.model.TransactionType;
 import com.example.fund_app.model.dto.AccountViewDto;
 import com.example.fund_app.model.dto.TransferDto;
 import com.example.fund_app.service.AccountService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,7 +39,7 @@ public class AccountController {
     @PostMapping("/{accountId}/deposit")
     public ResponseEntity<String> accountDeposit(
             @PathVariable Long accountId,
-            @RequestParam("amount") BigDecimal amount) {
+            @Min(10L) @RequestParam("amount") BigDecimal amount) {
         String result = accountService.deposit(accountId, amount, true);
         return ResponseEntity.ok(result);
     }
@@ -46,13 +47,13 @@ public class AccountController {
     @PostMapping("/{accountId}/withdraw")
     public ResponseEntity<String> accountWithdrawal(
             @PathVariable Long accountId,
-            @RequestParam("amount") BigDecimal amount) {
+            @Min(10L) @RequestParam("amount") BigDecimal amount) {
         String result = accountService.withdraw(accountId, amount, true);
         return ResponseEntity.ok(result);
     }
 
     @PostMapping("/transfer")
-    public ResponseEntity<String> accountTransfer(@RequestBody TransferDto dto) {
+    public ResponseEntity<String> accountTransfer( @Valid @RequestBody TransferDto dto) {
         if (dto.toSend()) {
             return ResponseEntity.ok(accountService.transferTo(dto.senderAccount(), dto.receiverAccount(), dto.amount()));
         }
