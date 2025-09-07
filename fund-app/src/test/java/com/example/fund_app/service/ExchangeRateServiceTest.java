@@ -49,17 +49,18 @@ public class ExchangeRateServiceTest {
         ExchangeRate exchangeRate = ExchangeRate.builder()
                 .currency(in)
                 .rates(Map.of(out, BigDecimal.TWO))
+                .lastUpdatedAt(LocalDate.now())
                 .build();
 
         // When
         doReturn(Optional.of(exchangeRate)).when(exchangeRateRepository)
-                .findByCurrencyAndLastUpdatedAt(eq(in), any());
+                .findById(eq(in));
 
         // Then
         BigDecimal result = exchangeRateService.getRate(in, out);
         assertEquals(BigDecimal.TWO, result);
 
-        verify(exchangeRateRepository, times(1)).findByCurrencyAndLastUpdatedAt(any(), any());
+        verify(exchangeRateRepository, times(1)).findById(any());
         verify(exchangeRateClient, times(0)).fetchRatesPerCurrency(any(Currency.class));
     }
 
@@ -72,22 +73,49 @@ public class ExchangeRateServiceTest {
         ExchangeRate exchangeRate = ExchangeRate.builder()
                 .currency(in)
                 .rates(Map.of(out, BigDecimal.TWO))
+                .lastUpdatedAt(LocalDate.now())
                 .build();
 
         ERApiResponse response = new ERApiResponse("success", "", Map.of());
 
         // When
         doReturn(Optional.empty()).when(exchangeRateRepository)
-                .findByCurrencyAndLastUpdatedAt(eq(in), any());
+                .findById(eq(in));
         doReturn(ResponseEntity.ofNullable(response)).when(exchangeRateClient).fetchRatesPerCurrency(in);
         doReturn(exchangeRate).when(exchangeRateMapper).toEntity(eq(response), any(LocalDate.class));
-        doReturn(exchangeRate).when(exchangeRateRepository).save(exchangeRate);
 
         // Then
         BigDecimal result = exchangeRateService.getRate(in, out);
         assertEquals(BigDecimal.TWO, result);
 
-        verify(exchangeRateRepository, times(1)).findByCurrencyAndLastUpdatedAt(any(), any());
+        verify(exchangeRateRepository, times(1)).findById(any());
+        verify(exchangeRateClient, times(1)).fetchRatesPerCurrency(any(Currency.class));
+    }
+
+    @Test
+    @DisplayName("should return the rate from the external API if currency rates has not been updated")
+    void rateIsFetchedWhenRecordIsTooOld() {
+        // Given
+        Currency in = Currency.BRL;
+        Currency out = Currency.EUR;
+        ExchangeRate exchangeRate = ExchangeRate.builder()
+                .currency(in)
+                .rates(Map.of(out, BigDecimal.TWO))
+                .lastUpdatedAt(LocalDate.now().minusDays(2))
+                .build();
+
+        ERApiResponse response = new ERApiResponse("success", "", Map.of(out.name(), BigDecimal.TEN));
+
+        // When
+        doReturn(Optional.of(exchangeRate)).when(exchangeRateRepository)
+                .findById(eq(in));
+        doReturn(ResponseEntity.ofNullable(response)).when(exchangeRateClient).fetchRatesPerCurrency(in);
+
+        // Then
+        BigDecimal result = exchangeRateService.getRate(in, out);
+        assertEquals(BigDecimal.TEN, result);
+
+        verify(exchangeRateRepository, times(1)).findById(any());
         verify(exchangeRateClient, times(1)).fetchRatesPerCurrency(any(Currency.class));
     }
 
@@ -102,13 +130,13 @@ public class ExchangeRateServiceTest {
 
         // When
         doReturn(Optional.empty()).when(exchangeRateRepository)
-                .findByCurrencyAndLastUpdatedAt(eq(in), any());
+                .findById(eq(in));
         doReturn(ResponseEntity.ofNullable(response)).when(exchangeRateClient).fetchRatesPerCurrency(in);
 
         // Then
         assertThrows(ExchangeRateNotRetrievableException.class, () -> exchangeRateService.getRate(in, out));
 
-        verify(exchangeRateRepository, times(1)).findByCurrencyAndLastUpdatedAt(any(), any());
+        verify(exchangeRateRepository, times(1)).findById(any());
         verify(exchangeRateClient, times(1)).fetchRatesPerCurrency(any(Currency.class));
     }
 
@@ -121,13 +149,13 @@ public class ExchangeRateServiceTest {
 
         // When
         doReturn(Optional.empty()).when(exchangeRateRepository)
-                .findByCurrencyAndLastUpdatedAt(eq(in), any());
+                .findById(eq(in));
         doReturn(ResponseEntity.internalServerError().build()).when(exchangeRateClient).fetchRatesPerCurrency(in);
 
         // Then
         assertThrows(ExchangeRateNotRetrievableException.class, () -> exchangeRateService.getRate(in, out));
 
-        verify(exchangeRateRepository, times(1)).findByCurrencyAndLastUpdatedAt(any(), any());
+        verify(exchangeRateRepository, times(1)).findById(any());
         verify(exchangeRateClient, times(1)).fetchRatesPerCurrency(any(Currency.class));
     }
 }

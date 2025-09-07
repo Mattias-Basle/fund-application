@@ -53,9 +53,7 @@ class FundAppApplicationTests {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@BeforeEach
-	void setUp() {
-		ownerRepository.deleteAll();
-	}
+	void setUp() { ownerRepository.deleteAll(); }
 
 	@Test
 	@Rollback

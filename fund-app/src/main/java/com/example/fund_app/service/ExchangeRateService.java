@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 @Slf4j
@@ -36,18 +38,21 @@ public class ExchangeRateService {
 
     public BigDecimal getRate(Currency in, Currency out) {
         log.info("Fetching rates for {}", in);
-        ExchangeRate xRate = exchangeRateRepository.findByCurrencyAndLastUpdatedAt(in, LocalDate.now())
+        ExchangeRate xRate = exchangeRateRepository.findById(in)
                     .orElseGet(() -> retrieveExchangeRate(in));
+
+        if (xRate.getLastUpdatedAt().isBefore(LocalDate.now())) {
+            var fetchResponse = findRatesByCurrency(in);
+            xRate.setRates(mapRates(fetchResponse.rates()));
+            exchangeRateRepository.save(xRate);
+        }
 
         return xRate.getRates().get(out);
     }
 
     private ExchangeRate retrieveExchangeRate(Currency in) {
-        ExchangeRate retrievedRate = exchangeRateMapper.toEntity(
+        return exchangeRateMapper.toEntity(
                 findRatesByCurrency(in), LocalDate.now());
-
-        ExchangeRate savedRate =  exchangeRateRepository.save(retrievedRate);
-        return savedRate;
     }
 
     private ERApiResponse findRatesByCurrency(Currency currency) {
@@ -61,5 +66,11 @@ public class ExchangeRateService {
             throw new ExchangeRateNotRetrievableException("Could not retrieve the exchange rate for " + currency);
         }
         return responseBody;
+    }
+
+    private Map<Currency, BigDecimal> mapRates(Map<String, BigDecimal> response) {
+        Map<Currency, BigDecimal> rates = new HashMap<>();
+        response.forEach((k, v) -> rates.put(Currency.valueOf(k), v));
+        return rates;
     }
 }

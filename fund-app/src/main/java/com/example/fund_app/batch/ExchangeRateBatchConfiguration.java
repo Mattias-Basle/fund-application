@@ -1,7 +1,6 @@
 package com.example.fund_app.batch;
 
 import com.example.fund_app.feign.ExchangeRateClient;
-import com.example.fund_app.mapper.ExchangeRateMapper;
 import com.example.fund_app.model.ExchangeRate;
 import com.example.fund_app.repository.ExchangeRateRepository;
 import org.springframework.batch.core.Job;
@@ -59,15 +58,15 @@ public class ExchangeRateBatchConfiguration {
     }
 
     @Bean
-    public ItemProcessor<ExchangeRate, ExchangeRate> processor(ExchangeRateClient client, ExchangeRateMapper mapper) {
-        return new ExchangeRateItemProcessor(client, mapper);
+    public ItemProcessor<ExchangeRate, ExchangeRate> processor(ExchangeRateClient client) {
+        return new ExchangeRateItemProcessor(client);
     }
 
     @Bean
     public ItemWriter<ExchangeRate> writer(ExchangeRateRepository repository) {
         return new RepositoryItemWriterBuilder<ExchangeRate>()
                 .repository(repository)
-                .methodName("saveAndFlush")
+                .methodName("save")
                 .build();
     }
 }
