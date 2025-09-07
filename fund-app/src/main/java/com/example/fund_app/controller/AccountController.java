@@ -40,7 +40,7 @@ public class AccountController {
     public ResponseEntity<String> accountDeposit(
             @PathVariable Long accountId,
             @Min(10L) @RequestParam("amount") BigDecimal amount) {
-        String result = accountService.deposit(accountId, amount, true);
+        String result = accountService.deposit(accountId, amount);
         return ResponseEntity.ok(result);
     }
 
@@ -48,7 +48,7 @@ public class AccountController {
     public ResponseEntity<String> accountWithdrawal(
             @PathVariable Long accountId,
             @Min(10L) @RequestParam("amount") BigDecimal amount) {
-        String result = accountService.withdraw(accountId, amount, true);
+        String result = accountService.withdraw(accountId, amount);
         return ResponseEntity.ok(result);
     }
 

@@ -48,7 +48,7 @@ public class OwnerControllerTest extends AbstractCT {
         String name = "test";
 
         // When
-        doNothing().when(ownerService).createOwner(name);
+        doReturn(null).when(ownerService).createOwner(name);
 
         // Then
         mockMvc.perform(post(BASE_URL)
@@ -235,7 +235,7 @@ public class OwnerControllerTest extends AbstractCT {
         Currency currency = Currency.EUR;
 
         // When
-        doNothing().when(ownerService).addAccountToOwner(id, currency);
+        doReturn(null).when(ownerService).addAccountToOwner(id, currency);
 
         // Then
         mockMvc.perform(patch(BASE_URL.concat("/1"))

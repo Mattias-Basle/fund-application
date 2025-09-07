@@ -2,6 +2,8 @@ package com.example.fund_app.mapper;
 
 import com.example.fund_app.model.Account;
 import com.example.fund_app.model.Owner;
+import com.example.fund_app.model.dbo.AccountDbo;
+import com.example.fund_app.model.dbo.OwnerDbo;
 import com.example.fund_app.model.dto.AccountDetailsViewDto;
 import com.example.fund_app.model.dto.OwnerDetailsViewDto;
 import com.example.fund_app.model.dto.OwnerViewDto;
@@ -34,9 +36,31 @@ public interface OwnerMapper {
         return accounts.stream().map(Account::getAccountId).collect(Collectors.toSet());
     }
 
+    default Set<Account> mapAccountsDbo(Set<AccountDbo> accountDbos) {
+        return accountDbos.stream()
+                .map(dbo ->
+                    Account.builder()
+                            .accountId(dbo.getAccountId())
+                            .owner(null)
+                            .currency(dbo.getCurrency())
+                            .balance(dbo.getBalance())
+                            .version(dbo.getVersion())
+                            .build()
+                )
+                .collect(Collectors.toSet());
+    }
+
     default Set<AccountDetailsViewDto> mapAccountsDetails(Set<Account> accounts) {
         return accounts.stream().map(account ->
                 new AccountDetailsViewDto(account.getAccountId(), account.getCurrency(), account.getBalance()))
                 .collect(Collectors.toSet());
     }
+
+    Owner toModel(OwnerDbo dbo);
+
+    OwnerDbo toDbo(Owner model);
+
+    default Page<Owner> toModel(Page<OwnerDbo> owners) {
+        return owners.map(this::toModel);
+    };
 }

@@ -100,7 +100,7 @@ public class AccountControllerTest extends AbstractCT {
         String confirmation = "Money successfully add to account";
 
         // When
-        doReturn(confirmation).when(accountService).deposit(1L, BigDecimal.TEN, true);
+        doReturn(confirmation).when(accountService).deposit(1L, BigDecimal.TEN);
 
         // Then
         String result = mockMvc.perform(post(BASE_URL.concat("/1/deposit"))
@@ -120,7 +120,7 @@ public class AccountControllerTest extends AbstractCT {
         String confirmation = "Money successfully withdrawn to account";
 
         // When
-        doReturn(confirmation).when(accountService).withdraw(1L, BigDecimal.TEN, true);
+        doReturn(confirmation).when(accountService).withdraw(1L, BigDecimal.TEN);
 
         // Then
         String result = mockMvc.perform(post(BASE_URL.concat("/1/withdraw"))

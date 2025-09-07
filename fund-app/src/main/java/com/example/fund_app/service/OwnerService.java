@@ -3,15 +3,17 @@ package com.example.fund_app.service;
 import com.example.fund_app.exception.DbRecordNotFoundException;
 import com.example.fund_app.exception.OwnerActionInvalidException;
 import com.example.fund_app.exception.OwnerAlreadyExistsException;
+import com.example.fund_app.mapper.AccountMapper;
+import com.example.fund_app.mapper.OwnerMapper;
 import com.example.fund_app.model.Account;
 import com.example.fund_app.model.Currency;
 import com.example.fund_app.model.Owner;
 import com.example.fund_app.repository.AccountRepository;
 import com.example.fund_app.repository.OwnerRepository;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -25,18 +27,21 @@ import java.util.HashSet;
 public class OwnerService {
 
     private final OwnerRepository ownerRepository;
-    private final AccountRepository accountRepository;
-    private final CacheManager ownerCacheManager;
 
-    public OwnerService(OwnerRepository ownerRepository,
-                        AccountRepository accountRepository,
-                        @Qualifier("ownerCacheManager") CacheManager ownerCacheManager) {
+    private final OwnerMapper ownerMapper;
+    private final AccountRepository accountRepository;
+
+    private final AccountMapper accountMapper;
+
+    public OwnerService(OwnerRepository ownerRepository, OwnerMapper ownerMapper, AccountRepository accountRepository, AccountMapper accountMapper) {
         this.ownerRepository = ownerRepository;
+        this.ownerMapper = ownerMapper;
         this.accountRepository = accountRepository;
-        this.ownerCacheManager = ownerCacheManager;
+        this.accountMapper = accountMapper;
     }
 
-    public void createOwner(String username) {
+    @CachePut(value = "ownersCache", key = "#result.id")
+    public Owner createOwner(String username) {
         if (ownerRepository.existsByUsername(username)) {
             throw new OwnerAlreadyExistsException(username + " already exists");
         }
@@ -46,28 +51,27 @@ public class OwnerService {
                 .accounts(new HashSet<>())
                 .build();
 
-        Owner savedOwner = ownerRepository.save(newOwner);
-        Cache cache = ownerCacheManager.getCache("OWNER_CACHE");
-        cache.put(savedOwner.getId(), savedOwner);
+        return ownerMapper.toModel(ownerRepository.save(ownerMapper.toDbo(newOwner)));
     }
 
     public Page<Owner> getAllOwners(Pageable pageable) {
-        return ownerRepository.findAll(pageable);
+        return ownerMapper.toModel(ownerRepository.findAll(pageable));
     }
 
+    @Transactional(readOnly = true)
+    @Cacheable(value = "ownersCache", key = "#ownerId")
     public Owner getById(Long ownerId) {
-        Cache cache = ownerCacheManager.getCache("OWNER_CACHE");
-        Owner cachedOwner = cache.get(ownerId, Owner.class);
-        if (cachedOwner != null) {
-            return cachedOwner;
-        }
-        Owner savedOwner =  ownerRepository.findById(ownerId)
-                .orElseThrow(() -> new DbRecordNotFoundException("Owner not found with ID: " + ownerId));
-        cache.put(ownerId, savedOwner);
-        return savedOwner;
+        return  ownerMapper.toModel(
+                ownerRepository.findById(ownerId)
+                        .orElseThrow(() -> new DbRecordNotFoundException("Owner not found with ID: " + ownerId)));
+
     }
 
-    public void addAccountToOwner(Long ownerId, Currency currency) {
+    @Caching(
+            evict = { @CacheEvict(value = "ownersCache", key = "#ownerId") },
+            put = { @CachePut(value = "ownersCache", key = "#result.id") }
+    )
+    public Owner addAccountToOwner(Long ownerId, Currency currency) {
         Owner owner = this.getById(ownerId);
 
         for (Account account : owner.getAccounts()) {
@@ -82,12 +86,12 @@ public class OwnerService {
                 .currency(currency)
                 .build();
 
-        accountRepository.save(accountToAdd);
-        Cache cache = ownerCacheManager.getCache("OWNER_CACHE");
-        cache.evictIfPresent(ownerId);
+        accountRepository.save(accountMapper.toDbo(accountToAdd));
+
+        return owner;
     }
 
-    @CacheEvict(cacheManager = "ownerCacheManager", value = "OWNER_CACHE", key = "#ownerId")
+    @CacheEvict(value = "ownersCache", key = "#ownerId")
     public void deleteOwner(Long ownerId) {
         ownerRepository.deleteById(ownerId);
     }

@@ -1,6 +1,5 @@
 package com.example.fund_app;
 
-import com.example.fund_app.model.Account;
 import com.example.fund_app.model.Currency;
 import com.example.fund_app.model.Owner;
 import com.example.fund_app.model.dto.AccountViewDto;
@@ -13,11 +12,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.Rollback;
@@ -30,11 +26,11 @@ import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.assertNull;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -44,14 +40,6 @@ class FundAppApplicationTests {
 
 	@Autowired
 	private MockMvc mockMvc;
-
-	@Autowired
-	@Qualifier("ownerCacheManager")
-	private CacheManager ownerCacheManager;
-
-	@Autowired
-	@Qualifier("accountCacheManager")
-	private CacheManager accountCacheManager;
 
 	@Autowired
 	private OwnerRepository ownerRepository;
@@ -94,10 +82,6 @@ class FundAppApplicationTests {
 		// Then call to retrieve owner
 		mockMvc.perform(get("/owners/" + ownerId));
 
-		// Check cache
-		Cache cache = ownerCacheManager.getCache("OWNER_CACHE");
-		assertNotNull(cache);
-
 		// Check that created owner is still in cache
 		verify(ownerRepositorySpy, times(0)).findById(ownerId);
 
@@ -106,30 +90,29 @@ class FundAppApplicationTests {
 		mockMvc.perform(patch("/owners/" + ownerId)
 				.param("currency", currency.name()));
 
-		// Check owner is evicted from cache after adding an account
-		Owner updatedOwner = cache.get(ownerId, Owner.class);
-        assertNull(updatedOwner);
 
 		// Then call to retrieve owner again and put it back into cache
-		mockMvc.perform(get("/owners/" + ownerId));
-		Owner updatedOwner2 = cache.get(ownerId, Owner.class);
-		assertNotNull(updatedOwner2);
-		assertFalse(updatedOwner2.getAccounts().isEmpty());
-
-		// Call to delete owner
-		mockMvc.perform(delete("/owners/" + ownerId));
-
-		// Check owner is evicted from cache
-		Owner evictedOwner = cache.get(ownerId, Owner.class);
-		assertNull(evictedOwner);
-
-		// Check owner has been deleted from DB
-		String responseBody2 = mockMvc.perform(get("/owners"))
+		String responseBody2 = mockMvc.perform(get("/owners/" + ownerId))
 				.andReturn()
 				.getResponse()
 				.getContentAsString();
 
-		Map<String, Object> response2 = objectMapper.readValue(responseBody2, Map.class);
+		OwnerViewDto dto = objectMapper.readValue(responseBody2, OwnerViewDto.class);
+		assertNotNull(dto);
+		assertFalse(dto.accountIds().isEmpty());
+
+		// Call to delete owner
+		mockMvc.perform(delete("/owners/" + ownerId));
+
+
+
+		// Check owner has been deleted from DB
+		String responseBody3 = mockMvc.perform(get("/owners"))
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		Map<String, Object> response2 = objectMapper.readValue(responseBody3, Map.class);
 		List<Owner> mappedResponse2 = (List<Owner>) response2.get("content");
 
 		assertTrue(mappedResponse2.isEmpty());
@@ -170,40 +153,43 @@ class FundAppApplicationTests {
 		OwnerViewDto firstOwner2 = objectMapper.readValue(responseBody2, OwnerViewDto.class);
 		Long accountId = firstOwner2.accountIds().stream().findFirst().get();
 
-		// Check that owner is store in DB
+		// Check that account is store in DB
 		assertTrue(accountRepository.existsById(accountId));
 
-		// Then call to retrieve account
-		mockMvc.perform(get("/accounts/" + accountId));
-
-		// Check cache
-		Cache cache = accountCacheManager.getCache("ACCOUNT_CACHE");
-		assertNotNull(cache);
-		assertNotNull(cache.get(accountId, Account.class));
 
 		// Then deposit money
 		mockMvc.perform(post("/accounts/" + accountId + "/deposit")
 				.param("amount", "20"));
 
-		// Check cache is updated
-		Account account = cache.get(accountId, Account.class);
-		assertEquals(new BigDecimal("20.00"), account.getBalance());
+		// Then call to retrieve updated account
+		String reponseBody3 = mockMvc.perform(get("/accounts/" + accountId))
+				.andReturn().getResponse().getContentAsString();
+
+		AccountViewDto dto = objectMapper.readValue(reponseBody3, AccountViewDto.class);
+		assertEquals(new BigDecimal("20.00"), dto.balance());
+
 
 		// Then withdraw money
 		mockMvc.perform(post("/accounts/" + accountId + "/withdraw")
 				.param("amount", "10"));
 
-		// Check cache is updated
-		Account account2 = cache.get(accountId, Account.class);
-		assertEquals(new BigDecimal("10.00"), account2.getBalance());
+		// Then call to retrieve updated account
+		String reponseBody4 = mockMvc.perform(get("/accounts/" + accountId))
+				.andReturn().getResponse().getContentAsString();
+
+		AccountViewDto dto2 = objectMapper.readValue(reponseBody4, AccountViewDto.class);
+		assertEquals(new BigDecimal("10.00"), dto2.balance());
 
 		// Delete account
 		mockMvc.perform(delete("/accounts/" + accountId));
-		Account evictedAccount = cache.get(accountId, Account.class);
-		assertNull(evictedAccount);
+
+		// Assert deletion
+		mockMvc.perform(get("/accounts/" + accountId))
+				.andExpect(status().isNotFound());
 	}
 
 	@Test
+	@Rollback
 	@DisplayName("should transfer funds properly")
 	void createOwnersAndAccounts_ThenTransferSameCurrency_ThenTransferOtherCurrency() throws Exception {
 		// Set up first owner

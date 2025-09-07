@@ -2,8 +2,10 @@ package com.example.fund_app.service;
 
 import com.example.fund_app.exception.AccountActionInvalidException;
 import com.example.fund_app.exception.DbRecordNotFoundException;
+import com.example.fund_app.mapper.AccountMapper;
 import com.example.fund_app.model.Account;
 import com.example.fund_app.model.Currency;
+import com.example.fund_app.model.dbo.AccountDbo;
 import com.example.fund_app.repository.AccountRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,19 +15,12 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.concurrent.ConcurrentMapCache;
 
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,7 +30,7 @@ public class AccountServiceTest {
     private AccountRepository accountRepository;
 
     @Mock
-    private CacheManager accountCacheManager;
+    private AccountMapper accountMapper;
 
     @Mock
     private ExchangeRateService exchangeRateService;
@@ -47,45 +42,24 @@ public class AccountServiceTest {
     private AccountService accountService;
 
     @Captor
-    ArgumentCaptor<Account> accountCaptor;
+    ArgumentCaptor<AccountDbo> accountDboCaptor;
 
-    @Test
-    @DisplayName("should find account in cache and return it")
-    void findByIdHitCache() {
-        // Given
-        Long id = 1L;
-        Account account = Account.builder()
-                .accountId(id)
-                .build();
-        Cache cache = new ConcurrentMapCache("TEST");
-        cache.put(id, account);
-
-        // When
-        doReturn(cache).when(accountCacheManager).getCache(anyString());
-
-        // Then
-        Account result = accountService.findById(id);
-
-        assertNotNull(result);
-        assertEquals(id, result.getAccountId());
-        verify(accountRepository, times(0)).findById(anyLong());
-    }
+    @Captor
+    ArgumentCaptor<Account> accountModelCaptor;
 
     @Test
     @DisplayName("should find account in db and return it")
     void findByIdSuccessful() {
-        Instant now = Instant.now();
-        LocalDate date = LocalDate.ofInstant(now, ZoneId.of("Europe/Paris"));
         // Given
         Long id = 1L;
+        AccountDbo dbo = new AccountDbo();
         Account account = Account.builder()
                 .accountId(id)
                 .build();
-        Cache cache = new ConcurrentMapCache("TEST");
 
         // When
-        doReturn(cache).when(accountCacheManager).getCache(anyString());
-        doReturn(Optional.of(account)).when(accountRepository).findById(id);
+        doReturn(Optional.of(dbo)).when(accountRepository).findById(id);
+        doReturn(account).when(accountMapper).toModel(dbo);
 
         // Then
         Account result = accountService.findById(id);
@@ -100,10 +74,8 @@ public class AccountServiceTest {
     void findByIdFails() {
         // Given
         Long id = 1L;
-        Cache cache = new ConcurrentMapCache("TEST");
 
         // When
-        doReturn(cache).when(accountCacheManager).getCache(anyString());
         doReturn(Optional.empty()).when(accountRepository).findById(id);
 
         // Then
@@ -115,29 +87,30 @@ public class AccountServiceTest {
     void depositSuccessful() {
         // Given
         Long id = 1L;
+        BigDecimal deposit = BigDecimal.TEN;
+        AccountDbo dbo = new AccountDbo();
+        dbo.setBalance(deposit);
         Account account = Account.builder()
                 .accountId(id)
                 .balance(BigDecimal.ZERO)
                 .currency(Currency.USD)
                 .build();
-        Cache cache = new ConcurrentMapCache("TEST");
-        cache.put(id, account);
 
-        BigDecimal deposit = BigDecimal.TEN;
+
 
         // When
-        doReturn(Optional.of(account)).when(accountRepository).findById(1L);
-        doReturn(account).when(accountRepository).save(any());
-        doReturn(cache).when(accountCacheManager).getCache(anyString());
+        doReturn(Optional.of(dbo)).when(accountRepository).findById(1L);
+        doReturn(account).when(accountMapper).toModel(dbo);
+        doReturn(dbo).when(accountMapper).toDbo(any());
+        doReturn(dbo).when(accountRepository).save(any());
 
         // Then
-        assertDoesNotThrow(() -> accountService.deposit(id, deposit, true));
+        assertDoesNotThrow(() -> accountService.deposit(id, deposit));
         verify(transactionService, times(1)).logDeposit(any(), any());
-        verify(accountRepository, times(1)).save(accountCaptor.capture());
+        verify(accountRepository, times(1)).save(accountDboCaptor.capture());
 
-        Account savedEntity = accountCaptor.getValue();
+        AccountDbo savedEntity = accountDboCaptor.getValue();
         assertNotNull(savedEntity);
-        assertEquals(deposit, savedEntity.getBalance());
     }
 
     @Test
@@ -145,29 +118,28 @@ public class AccountServiceTest {
     void withdrawSuccessful() {
         // Given
         Long id = 1L;
+        AccountDbo dbo = new AccountDbo();
         Account account = Account.builder()
                 .accountId(id)
                 .balance(BigDecimal.TEN)
                 .currency(Currency.USD)
                 .build();
-        Cache cache = new ConcurrentMapCache("TEST");
-        cache.put(id, account);
 
         BigDecimal deposit = BigDecimal.TEN;
 
         // When
-        doReturn(Optional.of(account)).when(accountRepository).findById(1L);
-        doReturn(account).when(accountRepository).save(any());
-        doReturn(cache).when(accountCacheManager).getCache(anyString());
+        doReturn(Optional.of(dbo)).when(accountRepository).findById(1L);
+        doReturn(account).when(accountMapper).toModel(dbo);
+        doReturn(dbo).when(accountMapper).toDbo(any());
+        doReturn(dbo).when(accountRepository).save(any());
 
         // Then
-        assertDoesNotThrow(() -> accountService.withdraw(id, deposit, true));
+        assertDoesNotThrow(() -> accountService.withdraw(id, deposit));
         verify(transactionService, times(1)).logWithdrawal(any(), any());
-        verify(accountRepository, times(1)).save(accountCaptor.capture());
+        verify(accountRepository, times(1)).save(accountDboCaptor.capture());
 
-        Account savedEntity = accountCaptor.getValue();
+        AccountDbo savedEntity = accountDboCaptor.getValue();
         assertNotNull(savedEntity);
-        assertEquals(BigDecimal.ZERO, savedEntity.getBalance());
     }
 
     @Test
@@ -175,6 +147,7 @@ public class AccountServiceTest {
     void withdrawFails() {
         // Given
         Long id = 1L;
+        AccountDbo dbo = new AccountDbo();
         Account account = Account.builder()
                 .accountId(id)
                 .balance(BigDecimal.TWO)
@@ -184,10 +157,11 @@ public class AccountServiceTest {
         BigDecimal deposit = BigDecimal.TEN;
 
         // When
-        doReturn(Optional.of(account)).when(accountRepository).findById(1L);
+        doReturn(Optional.of(dbo)).when(accountRepository).findById(1L);
+        doReturn(account).when(accountMapper).toModel(dbo);
 
         // Then
-        assertThrows(AccountActionInvalidException.class, () -> accountService.withdraw(id, deposit, true));
+        assertThrows(AccountActionInvalidException.class, () -> accountService.withdraw(id, deposit));
 
         verify(transactionService, times(0)).logWithdrawal(any(), any());
         verify(accountRepository, times(0)).save(any());
@@ -211,25 +185,29 @@ public class AccountServiceTest {
         Long id1 = 1L;
         Long id2 = 2L;
 
-        Account sender = Account.builder().accountId(id1).balance(BigDecimal.TEN).currency(Currency.USD).build();
-        Account receiver = Account.builder().accountId(id2).balance(BigDecimal.TWO).currency(Currency.USD).build();
+        AccountDbo sender = AccountDbo.builder().accountId(id1).balance(BigDecimal.TEN).currency(Currency.USD).build();
+        AccountDbo receiver = AccountDbo.builder().accountId(id2).balance(BigDecimal.TWO).currency(Currency.USD).build();
 
-        Cache cache = new ConcurrentMapCache("TEST");
+        Account senderAcc = Account.builder().accountId(id1).balance(BigDecimal.TEN).currency(Currency.USD).build();
+        Account receiverAcc = Account.builder().accountId(id1).balance(BigDecimal.TWO).currency(Currency.USD).build();
 
         // When
-        doReturn(cache).when(accountCacheManager).getCache(anyString());
         doReturn(Optional.of(sender)).when(accountRepository).findById(id1);
         doReturn(Optional.of(receiver)).when(accountRepository).findById(id2);
+        doReturn(senderAcc).when(accountMapper).toModel(sender);
+        doReturn(receiverAcc).when(accountMapper).toModel(receiver);
+        doReturn(sender).when(accountMapper).toDbo(senderAcc);
+        doReturn(receiver).when(accountMapper).toDbo(receiverAcc);
         doReturn(sender).when(accountRepository).save(sender);
         doReturn(receiver).when(accountRepository).save(receiver);
 
         // Then
         assertDoesNotThrow(() -> accountService.transferTo(id1, id2, BigDecimal.TEN));
         verify(transactionService, times(1)).logTransfer(
-                accountCaptor.capture(), accountCaptor.capture(), any(BigDecimal.class), any(BigDecimal.class)
+                accountModelCaptor.capture(), accountModelCaptor.capture(), any(BigDecimal.class), any(BigDecimal.class)
         );
 
-        List<Account> updatedAccounts = accountCaptor.getAllValues();
+        List<Account> updatedAccounts = accountModelCaptor.getAllValues();
         assertEquals(2, updatedAccounts.size());
         assertEquals(BigDecimal.ZERO, updatedAccounts.get(0).getBalance());
         assertEquals(BigDecimal.valueOf(12L), updatedAccounts.get(1).getBalance());
@@ -242,25 +220,29 @@ public class AccountServiceTest {
         Long id1 = 1L;
         Long id2 = 2L;
 
-        Account sender = Account.builder().accountId(id1).balance(BigDecimal.TEN).currency(Currency.USD).build();
-        Account receiver = Account.builder().accountId(id2).balance(BigDecimal.TWO).currency(Currency.USD).build();
+        AccountDbo sender = AccountDbo.builder().accountId(id1).balance(BigDecimal.TEN).currency(Currency.USD).build();
+        AccountDbo receiver = AccountDbo.builder().accountId(id2).balance(BigDecimal.TWO).currency(Currency.USD).build();
 
-        Cache cache = new ConcurrentMapCache("TEST");
+        Account senderAcc = Account.builder().accountId(id1).balance(BigDecimal.TEN).currency(Currency.USD).build();
+        Account receiverAcc = Account.builder().accountId(id1).balance(BigDecimal.TWO).currency(Currency.USD).build();
 
         // When
-        doReturn(cache).when(accountCacheManager).getCache(anyString());
         doReturn(Optional.of(sender)).when(accountRepository).findById(id1);
         doReturn(Optional.of(receiver)).when(accountRepository).findById(id2);
+        doReturn(senderAcc).when(accountMapper).toModel(sender);
+        doReturn(receiverAcc).when(accountMapper).toModel(receiver);
+        doReturn(sender).when(accountMapper).toDbo(senderAcc);
+        doReturn(receiver).when(accountMapper).toDbo(receiverAcc);
         doReturn(sender).when(accountRepository).save(sender);
         doReturn(receiver).when(accountRepository).save(receiver);
 
         // Then
         assertDoesNotThrow(() -> accountService.transferFrom(id1, id2, BigDecimal.TEN));
         verify(transactionService, times(1)).logTransfer(
-                accountCaptor.capture(), accountCaptor.capture(), any(BigDecimal.class), any(BigDecimal.class)
+                accountModelCaptor.capture(), accountModelCaptor.capture(), any(BigDecimal.class), any(BigDecimal.class)
         );
 
-        List<Account> updatedAccounts = accountCaptor.getAllValues();
+        List<Account> updatedAccounts = accountModelCaptor.getAllValues();
         assertEquals(2, updatedAccounts.size());
         assertEquals(BigDecimal.ZERO, updatedAccounts.get(0).getBalance());
         assertEquals(BigDecimal.valueOf(12), updatedAccounts.get(1).getBalance());
@@ -273,15 +255,19 @@ public class AccountServiceTest {
         Long id1 = 1L;
         Long id2 = 2L;
 
-        Account sender = Account.builder().accountId(id1).balance(BigDecimal.TEN).currency(Currency.USD).build();
-        Account receiver = Account.builder().accountId(id2).balance(BigDecimal.TWO).currency(Currency.EUR).build();
+        AccountDbo sender = AccountDbo.builder().accountId(id1).balance(BigDecimal.TEN).currency(Currency.USD).build();
+        AccountDbo receiver = AccountDbo.builder().accountId(id2).balance(BigDecimal.TWO).currency(Currency.EUR).build();
 
-        Cache cache = new ConcurrentMapCache("TEST");
+        Account senderAcc = Account.builder().accountId(id1).balance(BigDecimal.TEN).currency(Currency.USD).build();
+        Account receiverAcc = Account.builder().accountId(id1).balance(BigDecimal.TWO).currency(Currency.EUR).build();
 
         // When
-        doReturn(cache).when(accountCacheManager).getCache(anyString());
         doReturn(Optional.of(sender)).when(accountRepository).findById(id1);
         doReturn(Optional.of(receiver)).when(accountRepository).findById(id2);
+        doReturn(senderAcc).when(accountMapper).toModel(sender);
+        doReturn(receiverAcc).when(accountMapper).toModel(receiver);
+        doReturn(sender).when(accountMapper).toDbo(senderAcc);
+        doReturn(receiver).when(accountMapper).toDbo(receiverAcc);
         doReturn(BigDecimal.TWO).when(exchangeRateService).getRate(Currency.USD, Currency.EUR);
         doReturn(sender).when(accountRepository).save(sender);
         doReturn(receiver).when(accountRepository).save(receiver);
@@ -289,10 +275,10 @@ public class AccountServiceTest {
         // Then
         assertDoesNotThrow(() -> accountService.transferTo(id1, id2, BigDecimal.TEN));
         verify(transactionService, times(1)).logTransfer(
-                accountCaptor.capture(), accountCaptor.capture(), any(BigDecimal.class), any(BigDecimal.class)
+                accountModelCaptor.capture(), accountModelCaptor.capture(), any(BigDecimal.class), any(BigDecimal.class)
         );
 
-        List<Account> updatedAccounts = accountCaptor.getAllValues();
+        List<Account> updatedAccounts = accountModelCaptor.getAllValues();
         assertEquals(2, updatedAccounts.size());
         assertEquals(BigDecimal.ZERO, updatedAccounts.get(0).getBalance());
         assertEquals(BigDecimal.valueOf(22), updatedAccounts.get(1).getBalance());
@@ -305,15 +291,19 @@ public class AccountServiceTest {
         Long id1 = 1L;
         Long id2 = 2L;
 
-        Account sender = Account.builder().accountId(id1).balance(BigDecimal.TEN).currency(Currency.USD).build();
-        Account receiver = Account.builder().accountId(id2).balance(BigDecimal.TWO).currency(Currency.EUR).build();
+        AccountDbo sender = AccountDbo.builder().accountId(id1).balance(BigDecimal.TEN).currency(Currency.USD).build();
+        AccountDbo receiver = AccountDbo.builder().accountId(id2).balance(BigDecimal.TWO).currency(Currency.EUR).build();
 
-        Cache cache = new ConcurrentMapCache("TEST");
+        Account senderAcc = Account.builder().accountId(id1).balance(BigDecimal.TEN).currency(Currency.USD).build();
+        Account receiverAcc = Account.builder().accountId(id1).balance(BigDecimal.TWO).currency(Currency.EUR).build();
 
         // When
-        doReturn(cache).when(accountCacheManager).getCache(anyString());
         doReturn(Optional.of(sender)).when(accountRepository).findById(id1);
         doReturn(Optional.of(receiver)).when(accountRepository).findById(id2);
+        doReturn(senderAcc).when(accountMapper).toModel(sender);
+        doReturn(receiverAcc).when(accountMapper).toModel(receiver);
+        doReturn(sender).when(accountMapper).toDbo(senderAcc);
+        doReturn(receiver).when(accountMapper).toDbo(receiverAcc);
         doReturn(BigDecimal.TWO).when(exchangeRateService).getRate(Currency.USD, Currency.EUR);
         doReturn(sender).when(accountRepository).save(sender);
         doReturn(receiver).when(accountRepository).save(receiver);
@@ -321,10 +311,10 @@ public class AccountServiceTest {
         // Then
         assertDoesNotThrow(() -> accountService.transferFrom(id1, id2, BigDecimal.TEN));
         verify(transactionService, times(1)).logTransfer(
-                accountCaptor.capture(), accountCaptor.capture(), any(BigDecimal.class), any(BigDecimal.class)
+                accountModelCaptor.capture(), accountModelCaptor.capture(), any(BigDecimal.class), any(BigDecimal.class)
         );
 
-        List<Account> updatedAccounts = accountCaptor.getAllValues();
+        List<Account> updatedAccounts = accountModelCaptor.getAllValues();
         assertEquals(2, updatedAccounts.size());
         assertEquals(BigDecimal.valueOf(500, 2), updatedAccounts.get(0).getBalance());
         assertEquals(BigDecimal.valueOf(12), updatedAccounts.get(1).getBalance());

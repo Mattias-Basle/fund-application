@@ -2,12 +2,13 @@ package com.example.fund_app.service;
 
 import com.example.fund_app.exception.AccountActionInvalidException;
 import com.example.fund_app.exception.DbRecordNotFoundException;
+import com.example.fund_app.mapper.AccountMapper;
 import com.example.fund_app.model.Account;
+import com.example.fund_app.model.dbo.AccountDbo;
 import com.example.fund_app.repository.AccountRepository;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,47 +23,44 @@ public class AccountService {
 
     private final AccountRepository accountRepository;
 
-    private final CacheManager accountCacheManager;
+    private final AccountMapper accountMapper;
     private final ExchangeRateService exchangeRateService;
     private final TransactionService transactionService;
 
-    public AccountService(AccountRepository accountRepository,
-                          @Qualifier("accountCacheManager") CacheManager cacheManager,
+    public AccountService(AccountRepository accountRepository, AccountMapper accountMapper,
                           ExchangeRateService exchangeRateService,
                           TransactionService transactionService) {
         this.accountRepository = accountRepository;
-        this.accountCacheManager = cacheManager;
+        this.accountMapper = accountMapper;
         this.exchangeRateService = exchangeRateService;
         this.transactionService = transactionService;
     }
 
+    @Transactional(readOnly = true)
+    @Cacheable(value = "accountsCache", key = "#accountId")
     public Account findById(Long accountId) {
-        Cache cache = accountCacheManager.getCache("ACCOUNT_CACHE");
-        Account cachedAccount = cache.get(accountId, Account.class);
-        if (cachedAccount != null) {
-            return cachedAccount;
-        }
-        Account savedAccount =  findAccount(accountId);
-        cache.put(accountId, savedAccount);
-        return savedAccount;
+        return accountMapper.toModel(
+                accountRepository.findById(accountId)
+                        .orElseThrow(() -> new DbRecordNotFoundException("Could not find account with ID: " + accountId)));
     }
 
-    @CacheEvict(cacheManager = "accountCacheManager", value = "ACCOUNT_CACHE", key = "#accountId")
+
+    @CacheEvict(value = "accountsCache", key = "#accountId")
     public void deleteAccount(Long accountId) {
         accountRepository.deleteById(accountId);
     }
 
-    public String deposit(Long accountId, BigDecimal amount, boolean logTransaction) {
-        Account account = findAccount(accountId);
-        return deposit(account, amount, logTransaction);
+    @CacheEvict(value = "accountsCache", key = "#accountId")
+    public String deposit(Long accountId, BigDecimal amount) {
+        Account account = findById(accountId);
+        return deposit(account, amount, true);
     }
 
     private String deposit(Account account, BigDecimal amount, boolean logTransaction) {
         BigDecimal newBalance = account.getBalance().add(amount);
 
         account.setBalance(newBalance);
-        Account updatedAccount = accountRepository.save(account);
-        updateAccountCache(updatedAccount);
+        accountRepository.save(accountMapper.toDbo(account));
 
         if (logTransaction) {
             transactionService.logDeposit(account, amount);
@@ -72,9 +70,10 @@ public class AccountService {
                 account.getCurrency().name(), amount, account.getAccountId(), account.getCurrency().name(), newBalance);
     }
 
-    public String withdraw(Long accountId, BigDecimal amount, boolean logTransaction) {
-        Account account = findAccount(accountId);
-        return withdraw(account, amount, logTransaction);
+    @CacheEvict(value = "accountsCache", key = "#accountId")
+    public String withdraw(Long accountId, BigDecimal amount) {
+        Account account = findById(accountId);
+        return withdraw(account, amount, true);
     }
 
     private String withdraw(Account account, BigDecimal amount, boolean logTransaction) {
@@ -85,8 +84,7 @@ public class AccountService {
         }
 
         account.setBalance(newBalance);
-        Account updatedAccount = accountRepository.save(account);
-        updateAccountCache(updatedAccount);
+        accountRepository.save(accountMapper.toDbo(account));
 
         if (logTransaction) {
             transactionService.logWithdrawal(account, amount);
@@ -96,18 +94,24 @@ public class AccountService {
                 account.getCurrency().name(), amount, account.getAccountId(), account.getCurrency().name(), newBalance);
     }
 
+    @Caching(
+            evict = {
+                    @CacheEvict(value = "accountsCache", key = "#senderId"),
+                    @CacheEvict(value = "accountsCache", key = "#receiverId")
+            }
+    )
     public String transferTo(Long senderId, Long receiverId, BigDecimal amount) {
         if (senderId.equals(receiverId)) {
             throw new AccountActionInvalidException("Transfer cannot be performed within the same account");
         }
 
-        Account senderAccount = findAccount(senderId);
+        Account senderAccount = findById(senderId);
 
         if (amount.compareTo(senderAccount.getBalance()) > 0) {
             throw new AccountActionInvalidException("The account does not have sufficient funds for this operation");
         }
 
-        Account receiverAccount = findAccount(receiverId);
+        Account receiverAccount = findById(receiverId);
 
         if (receiverAccount.getCurrency().equals(senderAccount.getCurrency())) {
             computeWithinCurrency(senderAccount, receiverAccount, amount);
@@ -118,38 +122,37 @@ public class AccountService {
         return format("Transfer between accounts %s and %s successful", senderId, receiverId);
     }
 
+    @Caching(
+            evict = {
+                    @CacheEvict(value = "accountsCache", key = "#senderId"),
+                    @CacheEvict(value = "accountsCache", key = "#receiverId")
+            }
+    )
 
     public String transferFrom(Long senderId, Long receiverId, BigDecimal amount) {
         if (senderId.equals(receiverId)) {
             throw new AccountActionInvalidException("Transfer cannot be performed within the same account");
         }
 
-        Account senderAccount = findAccount(senderId);
-        Account receiverAccount = findAccount(receiverId);
+        Account senderAccount = findById(senderId);
+        Account receiverAccount = findById(receiverId);
 
         BigDecimal amountToWithdraw;
 
         if (senderAccount.getCurrency().equals(receiverAccount.getCurrency())) {
             amountToWithdraw = amount;
-            this.withdraw(senderId, amountToWithdraw, false);
+            withdraw(senderAccount, amountToWithdraw, false);
         } else {
             BigDecimal rate = exchangeRateService.getRate(senderAccount.getCurrency(), receiverAccount.getCurrency());
             amountToWithdraw = amount.divide(rate, 2, RoundingMode.HALF_EVEN);
 
-
-            this.withdraw(senderId, amountToWithdraw, false);
-
+            withdraw(senderAccount, amountToWithdraw, false);
         }
 
-        this.deposit(receiverId, amount, false);
+        this.deposit(receiverAccount, amount, false);
         transactionService.logTransfer(senderAccount, receiverAccount, amountToWithdraw, amount);
 
         return format("Transfer between accounts %s and %s successful", senderId, receiverId);
-    }
-
-    private Account findAccount(Long accountId) {
-        return accountRepository.findById(accountId)
-                .orElseThrow(() -> new DbRecordNotFoundException("Account not found with ID: " + accountId));
     }
 
     private void computeWithinCurrency(Account senderAccount, Account receiverAccount, BigDecimal amount) {
@@ -161,17 +164,11 @@ public class AccountService {
     private void computeOnDifferentCurrenciesToSend(Account senderAccount, Account receiverAccount, BigDecimal amount) {
         BigDecimal rate = exchangeRateService.getRate(senderAccount.getCurrency(), receiverAccount.getCurrency());
 
-
         BigDecimal amountToDeposit = amount.multiply(rate);
 
         withdraw(senderAccount, amount, false);
         deposit(receiverAccount, amountToDeposit, false);
 
         transactionService.logTransfer(senderAccount, receiverAccount, amount, amountToDeposit);
-    }
-    private void updateAccountCache(Account account) {
-        Cache cache = accountCacheManager.getCache("ACCOUNT_CACHE");
-        cache.evictIfPresent(account.getAccountId());
-        cache.put(account.getAccountId(), account);
     }
 }

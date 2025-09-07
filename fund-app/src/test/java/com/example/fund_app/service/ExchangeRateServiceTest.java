@@ -35,9 +35,6 @@ public class ExchangeRateServiceTest {
     private ExchangeRateRepository exchangeRateRepository;
 
     @Mock
-    private CacheManager exchangeRateCacheManager;
-
-    @Mock
     private ExchangeRateClient exchangeRateClient;
 
     @Mock
@@ -45,32 +42,6 @@ public class ExchangeRateServiceTest {
 
     @InjectMocks
     private ExchangeRateService exchangeRateService;
-
-    @Test
-    @DisplayName("should return the rate from the cache")
-    void rateIsCached() {
-        // Given
-        Currency in = Currency.BRL;
-        Currency out = Currency.EUR;
-        ExchangeRate exchangeRate = ExchangeRate.builder()
-                .currency(in)
-                .rates(Map.of(out, BigDecimal.TWO))
-                .lastUpdatedAt(LocalDate.now())
-                .build();
-
-        Cache cache = new ConcurrentMapCache("TEST");
-        cache.put(in, exchangeRate);
-
-        // When
-        doReturn(cache).when(exchangeRateCacheManager).getCache(any());
-
-        // Then
-        BigDecimal result = exchangeRateService.getRate(in, out);
-        assertEquals(BigDecimal.TWO, result);
-
-        verify(exchangeRateRepository, times(0)).findByCurrencyAndLastUpdatedAt(any(), any());
-        verify(exchangeRateClient, times(0)).fetchRatesPerCurrency(any(Currency.class));
-    }
 
     @Test
     @DisplayName("should return the rate from the DB")
@@ -83,10 +54,7 @@ public class ExchangeRateServiceTest {
                 .rates(Map.of(out, BigDecimal.TWO))
                 .build();
 
-        Cache cache = new ConcurrentMapCache("TEST");
-
         // When
-        doReturn(cache).when(exchangeRateCacheManager).getCache(any());
         doReturn(Optional.of(exchangeRate)).when(exchangeRateRepository)
                 .findByCurrencyAndLastUpdatedAt(eq(in), any());
 
@@ -109,12 +77,9 @@ public class ExchangeRateServiceTest {
                 .rates(Map.of(out, BigDecimal.TWO))
                 .build();
 
-        Cache cache = new ConcurrentMapCache("TEST");
-
         ERApiResponse response = new ERApiResponse("success", "", Map.of());
 
         // When
-        doReturn(cache).when(exchangeRateCacheManager).getCache(any());
         doReturn(Optional.empty()).when(exchangeRateRepository)
                 .findByCurrencyAndLastUpdatedAt(eq(in), any());
         doReturn(ResponseEntity.ofNullable(response)).when(exchangeRateClient).fetchRatesPerCurrency(in);
@@ -135,12 +100,10 @@ public class ExchangeRateServiceTest {
         // Given
         Currency in = Currency.BRL;
         Currency out = Currency.EUR;
-        Cache cache = new ConcurrentMapCache("TEST");
 
         ERApiResponse response = new ERApiResponse("fail", "", Map.of());
 
         // When
-        doReturn(cache).when(exchangeRateCacheManager).getCache(any());
         doReturn(Optional.empty()).when(exchangeRateRepository)
                 .findByCurrencyAndLastUpdatedAt(eq(in), any());
         doReturn(ResponseEntity.ofNullable(response)).when(exchangeRateClient).fetchRatesPerCurrency(in);
@@ -158,10 +121,8 @@ public class ExchangeRateServiceTest {
         // Given
         Currency in = Currency.BRL;
         Currency out = Currency.EUR;
-        Cache cache = new ConcurrentMapCache("TEST");
 
         // When
-        doReturn(cache).when(exchangeRateCacheManager).getCache(any());
         doReturn(Optional.empty()).when(exchangeRateRepository)
                 .findByCurrencyAndLastUpdatedAt(eq(in), any());
         doReturn(ResponseEntity.internalServerError().build()).when(exchangeRateClient).fetchRatesPerCurrency(in);
