@@ -4,8 +4,8 @@ import com.example.fund_app.exception.AccountActionInvalidException;
 import com.example.fund_app.exception.DbRecordNotFoundException;
 import com.example.fund_app.mapper.AccountMapper;
 import com.example.fund_app.model.Account;
-import com.example.fund_app.model.dbo.AccountDbo;
 import com.example.fund_app.repository.AccountRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -18,6 +18,7 @@ import java.math.RoundingMode;
 import static java.lang.String.format;
 
 @Service
+@Slf4j
 @Transactional
 public class AccountService {
 
@@ -25,11 +26,11 @@ public class AccountService {
 
     private final AccountMapper accountMapper;
     private final ExchangeRateService exchangeRateService;
-    private final TransactionService transactionService;
+    private final TransactionAuditService transactionService;
 
     public AccountService(AccountRepository accountRepository, AccountMapper accountMapper,
                           ExchangeRateService exchangeRateService,
-                          TransactionService transactionService) {
+                          TransactionAuditService transactionService) {
         this.accountRepository = accountRepository;
         this.accountMapper = accountMapper;
         this.exchangeRateService = exchangeRateService;
@@ -48,10 +49,12 @@ public class AccountService {
     @CacheEvict(value = "accountsCache", key = "#accountId")
     public void deleteAccount(Long accountId) {
         accountRepository.deleteById(accountId);
+        log.warn("Account {} successfully deleted", accountId);
     }
 
     @CacheEvict(value = "accountsCache", key = "#accountId")
     public String deposit(Long accountId, BigDecimal amount) {
+        log.info("Starting a new deposit on account: {}", accountId);
         Account account = findById(accountId);
         return deposit(account, amount, true);
     }
@@ -72,6 +75,7 @@ public class AccountService {
 
     @CacheEvict(value = "accountsCache", key = "#accountId")
     public String withdraw(Long accountId, BigDecimal amount) {
+        log.info("Starting a new withdrawal on account: {}", accountId);
         Account account = findById(accountId);
         return withdraw(account, amount, true);
     }
@@ -101,6 +105,7 @@ public class AccountService {
             }
     )
     public String transferTo(Long senderId, Long receiverId, BigDecimal amount) {
+        log.info("Starting a new transfer between {} and {}", senderId, receiverId);
         if (senderId.equals(receiverId)) {
             throw new AccountActionInvalidException("Transfer cannot be performed within the same account");
         }
@@ -130,6 +135,7 @@ public class AccountService {
     )
 
     public String transferFrom(Long senderId, Long receiverId, BigDecimal amount) {
+        log.info("Starting a new transfer between {} and {}", senderId, receiverId);
         if (senderId.equals(receiverId)) {
             throw new AccountActionInvalidException("Transfer cannot be performed within the same account");
         }

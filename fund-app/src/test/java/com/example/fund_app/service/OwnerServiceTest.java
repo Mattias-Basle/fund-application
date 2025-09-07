@@ -50,9 +50,6 @@ public class OwnerServiceTest {
     @Captor
     ArgumentCaptor<Owner> ownerModelCaptor;
 
-    @Captor
-    ArgumentCaptor<OwnerDbo> ownerDboCaptor;
-
     @Mock
     private Pageable pageable;
 

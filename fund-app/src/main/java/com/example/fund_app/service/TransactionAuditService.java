@@ -20,7 +20,7 @@ import java.util.UUID;
  */
 @Service
 @Slf4j
-public class TransactionService {
+public class TransactionAuditService {
 
     public void logDeposit(Account depositAccount, BigDecimal value) {
         Amount depositAmount = Amount.builder()

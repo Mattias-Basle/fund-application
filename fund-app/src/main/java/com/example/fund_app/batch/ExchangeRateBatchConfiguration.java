@@ -20,6 +20,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.data.domain.Sort;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 @Configuration
@@ -50,7 +52,8 @@ public class ExchangeRateBatchConfiguration {
         return new RepositoryItemReaderBuilder<ExchangeRate>()
                 .name("exchangeRateItemReader")
                 .repository(repository)
-                .methodName("findAll")
+                .methodName("findAllByLastUpdatedAtBefore")
+                .arguments(List.of(LocalDate.now()))
                 .sorts(Map.of("currency", Sort.Direction.ASC))
                 .build();
     }
@@ -64,7 +67,7 @@ public class ExchangeRateBatchConfiguration {
     public ItemWriter<ExchangeRate> writer(ExchangeRateRepository repository) {
         return new RepositoryItemWriterBuilder<ExchangeRate>()
                 .repository(repository)
-                .methodName("save")
+                .methodName("saveAndFlush")
                 .build();
     }
 }

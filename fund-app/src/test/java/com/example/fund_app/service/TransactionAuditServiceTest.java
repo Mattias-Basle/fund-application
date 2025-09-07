@@ -14,10 +14,10 @@ import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
-public class TransactionServiceTest {
+public class TransactionAuditServiceTest {
 
     @InjectMocks
-    private TransactionService transactionService;
+    private TransactionAuditService transactionService;
 
     @Test
     @DisplayName("should log deposit successfully")

@@ -7,6 +7,7 @@ import com.example.fund_app.mapper.ExchangeRateMapper;
 import com.example.fund_app.model.Currency;
 import com.example.fund_app.model.ExchangeRate;
 import com.example.fund_app.repository.ExchangeRateRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Service
+@Slf4j
 @Transactional(propagation = Propagation.REQUIRED)
 public class ExchangeRateService {
 
@@ -33,6 +35,7 @@ public class ExchangeRateService {
     }
 
     public BigDecimal getRate(Currency in, Currency out) {
+        log.info("Fetching rates for {}", in);
         ExchangeRate xRate = exchangeRateRepository.findByCurrencyAndLastUpdatedAt(in, LocalDate.now())
                     .orElseGet(() -> retrieveExchangeRate(in));
 

@@ -36,7 +36,7 @@ public class AccountServiceTest {
     private ExchangeRateService exchangeRateService;
 
     @Mock
-    private TransactionService transactionService;
+    private TransactionAuditService transactionAuditService;
 
     @InjectMocks
     private AccountService accountService;
@@ -106,7 +106,7 @@ public class AccountServiceTest {
 
         // Then
         assertDoesNotThrow(() -> accountService.deposit(id, deposit));
-        verify(transactionService, times(1)).logDeposit(any(), any());
+        verify(transactionAuditService, times(1)).logDeposit(any(), any());
         verify(accountRepository, times(1)).save(accountDboCaptor.capture());
 
         AccountDbo savedEntity = accountDboCaptor.getValue();
@@ -135,7 +135,7 @@ public class AccountServiceTest {
 
         // Then
         assertDoesNotThrow(() -> accountService.withdraw(id, deposit));
-        verify(transactionService, times(1)).logWithdrawal(any(), any());
+        verify(transactionAuditService, times(1)).logWithdrawal(any(), any());
         verify(accountRepository, times(1)).save(accountDboCaptor.capture());
 
         AccountDbo savedEntity = accountDboCaptor.getValue();
@@ -163,7 +163,7 @@ public class AccountServiceTest {
         // Then
         assertThrows(AccountActionInvalidException.class, () -> accountService.withdraw(id, deposit));
 
-        verify(transactionService, times(0)).logWithdrawal(any(), any());
+        verify(transactionAuditService, times(0)).logWithdrawal(any(), any());
         verify(accountRepository, times(0)).save(any());
     }
 
@@ -203,7 +203,7 @@ public class AccountServiceTest {
 
         // Then
         assertDoesNotThrow(() -> accountService.transferTo(id1, id2, BigDecimal.TEN));
-        verify(transactionService, times(1)).logTransfer(
+        verify(transactionAuditService, times(1)).logTransfer(
                 accountModelCaptor.capture(), accountModelCaptor.capture(), any(BigDecimal.class), any(BigDecimal.class)
         );
 
@@ -238,7 +238,7 @@ public class AccountServiceTest {
 
         // Then
         assertDoesNotThrow(() -> accountService.transferFrom(id1, id2, BigDecimal.TEN));
-        verify(transactionService, times(1)).logTransfer(
+        verify(transactionAuditService, times(1)).logTransfer(
                 accountModelCaptor.capture(), accountModelCaptor.capture(), any(BigDecimal.class), any(BigDecimal.class)
         );
 
@@ -274,7 +274,7 @@ public class AccountServiceTest {
 
         // Then
         assertDoesNotThrow(() -> accountService.transferTo(id1, id2, BigDecimal.TEN));
-        verify(transactionService, times(1)).logTransfer(
+        verify(transactionAuditService, times(1)).logTransfer(
                 accountModelCaptor.capture(), accountModelCaptor.capture(), any(BigDecimal.class), any(BigDecimal.class)
         );
 
@@ -310,7 +310,7 @@ public class AccountServiceTest {
 
         // Then
         assertDoesNotThrow(() -> accountService.transferFrom(id1, id2, BigDecimal.TEN));
-        verify(transactionService, times(1)).logTransfer(
+        verify(transactionAuditService, times(1)).logTransfer(
                 accountModelCaptor.capture(), accountModelCaptor.capture(), any(BigDecimal.class), any(BigDecimal.class)
         );
 

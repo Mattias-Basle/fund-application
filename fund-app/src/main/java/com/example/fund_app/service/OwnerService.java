@@ -10,6 +10,7 @@ import com.example.fund_app.model.Currency;
 import com.example.fund_app.model.Owner;
 import com.example.fund_app.repository.AccountRepository;
 import com.example.fund_app.repository.OwnerRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
@@ -23,6 +24,7 @@ import java.math.BigDecimal;
 import java.util.HashSet;
 
 @Service
+@Slf4j
 @Transactional
 public class OwnerService {
 
@@ -72,6 +74,7 @@ public class OwnerService {
             put = { @CachePut(value = "ownersCache", key = "#result.id") }
     )
     public Owner addAccountToOwner(Long ownerId, Currency currency) {
+        log.info("Adding new account for owner: {}", ownerId);
         Owner owner = this.getById(ownerId);
 
         for (Account account : owner.getAccounts()) {
@@ -94,5 +97,6 @@ public class OwnerService {
     @CacheEvict(value = "ownersCache", key = "#ownerId")
     public void deleteOwner(Long ownerId) {
         ownerRepository.deleteById(ownerId);
+        log.warn("Owner {} successfully deleted", ownerId);
     }
 }
