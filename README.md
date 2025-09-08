@@ -34,7 +34,7 @@ Once the containers are up and running, you can start playing around using the e
 # About the project
 ## Next Steps
 ### Improve tests
-In its current form the project has clashing configuration between the testcontainers and the batch testing configuration (currently disabled on the test suite but fully working in isolation). An invesgation needs to be done to:
+In its current form the project has clashing configurations between the testcontainers and the batch testing configuration (currently disabled on the test suite but fully working in isolation). An invesgation needs to be done to:
 * Regain control over the testcontainers lifecycle, making sure they're down before the test suite keeps on going.
 * Isolate the batch testing configuration such that no side effect occurs within the testcontainers
 
@@ -54,7 +54,7 @@ Feel free to readjust the version if you want the integration tests to run using
 as your production environment.
 
 ## Concurrency support
-This project run on JDK 21. Virtual threads have been enabled as most of the tasks are I/O related.
+This project runs on JDK 21. Virtual threads have been enabled as most of the tasks are I/O related.
 No extra configuration has been put in place so far. However, the project currently support 100 concurrent calls without fail.
 You can check it out using [Apache Benchmark](https://httpd.apache.org/docs/2.4/programs/ab.html) (If you are using macOS, this Apache project is already installed by default). 
 
@@ -62,4 +62,4 @@ To do so, run the following command on a running project:
 
 `ab -n 3000 -c 100 <url_endpoint_to_test>`
 
-This will fire 100 concurrent requests to the desired endpoints until it reaches a total of 3000 requests.
+This will fire 100 concurrent requests to the desired endpoints until it reaches a total of 3000 requests and provides overall statistics.
