@@ -3,17 +3,19 @@ This project aims at mimicking a small fund transferring system.
 In it, you can create your own user and accounts, deposit, withdraw and transfer funds.
 Different currencies are supported for mimicking 'international transfers'.
 
+Disclaimer: the project is not link to any banking system so you won't be able to upgrade your bank account with it (sorry about that).
+
 # Getting Started
 ## Initialize the project
 ### Requirements
-To run the project successfully you need to have bot **git** and **docker** installed on your machine. 
+To run the project successfully you need to have both **git** and **docker** installed on your machine. 
 You can find the documentation on how to install them here:
 
 * [Git install documentation](https://github.com/git-guides/install-git)
 * [Docker engine install documentation](https://docs.docker.com/engine/install/)
 
 ### Set It Up
-This project being hosted on a public GitHub repository, the first thing
+This project being hosted on a public GitHub repository, the first thing to do
 is to clone it in your device using the following command with the copied url: 
 
 `git clone <project_url>`
@@ -23,16 +25,27 @@ Once the project has been cloned, go inside the project's directory then run the
 
 `docker compose up`
 
-The project has been fully dockerized, the command will set up the required infrastructure to run the code
-as well as run the SpringBoot application.
-Once the containers are up and running, you can start using exposed endpoints [Here](http://localhost:8080/swagger-ui/index.html#/)
+And.... That's it!!
+
+The project has been fully dockerized, so the above command will set up the required infrastructure to run the code
+as well as running the SpringBoot application itlself.
+Once the containers are up and running, you can start playing around using the exposed endpoints [Here](http://localhost:8080/swagger-ui/index.html#/)
 
 # About the project
+## Next Steps
+### Improve tests
+In its current form the project has clashing configuration between the testcontainers and the batch testing configuration (currently disabled on the test suite but fully working in isolation). An invesgation needs to be done to:
+* Regain control over the testcontainers lifecycle, making sure they're down before the test suite keeps on going.
+* Isolate the batch testing configuration such that no side effect occurs within the testcontainers
+
+### Improve audit mechanism
+Currently, auditing the transactions happening within the application is done solely using logs. Adding a Kafka producer (or similar technology) to send audit information through an event pipe for further use should be a nice add-on.
+
 ## Testcontainers support
 
 This project uses [Testcontainers at development time](https://docs.spring.io/spring-boot/3.5.5/reference/features/dev-services.html#features.dev-services.testcontainers).
 
-Testcontainers has been configured to use the following Docker images:
+Testcontainers have been configured to use the following Docker images:
 
 * [`postgres:latest`](https://hub.docker.com/_/postgres)
 * [`redis:latest`](https://hub.docker.com/_/redis)
